@@ -20,3 +20,6 @@
 -keep class com.google.android.fhir.sync.remote.RetrofitHttpService { *; }
 ## retrofit ends
 -ignorewarnings
+
+-keep,includedescriptorclasses class net.zetetic.database.** { *; }
+-keep,includedescriptorclasses interface net.zetetic.database.** { *; }
