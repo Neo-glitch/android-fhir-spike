@@ -11,8 +11,11 @@
 
 ## sqlcipher starts
 # see (https://github.com/sqlcipher/android-database-sqlcipher/tree/master#proguard)
--keep,includedescriptorclasses class net.sqlcipher.** { *; }
--keep,includedescriptorclasses interface net.sqlcipher.** { *; }
+#-keep,includedescriptorclasses class net.sqlcipher.** { *; }
+#-keep,includedescriptorclasses interface net.sqlcipher.** { *; }
+
+-keep,includedescriptorclasses class net.zetetic.database.** { *; }
+-keep,includedescriptorclasses interface net.zetetic.database.** { *; }
 ## sqlcipher ends
 
 ## retrofit starts
@@ -20,6 +23,3 @@
 -keep class com.google.android.fhir.sync.remote.RetrofitHttpService { *; }
 ## retrofit ends
 -ignorewarnings
-
--keep,includedescriptorclasses class net.zetetic.database.** { *; }
--keep,includedescriptorclasses interface net.zetetic.database.** { *; }
