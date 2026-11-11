@@ -45,6 +45,9 @@ internal class SQLCipherSupportHelper(
 
   @Volatile private var delegate: SupportSQLiteOpenHelper? = null
 
+  /** Guards delegate creation and replacement so two first callers cannot open the file twice. */
+  private val delegateLock = Any()
+
   @Volatile private var walEnabled: Boolean = false
 
   override val databaseName: String?
@@ -59,22 +62,20 @@ internal class SQLCipherSupportHelper(
     get() {
       check(!configuration.context.getDatabasePath(UNENCRYPTED_DATABASE_NAME).exists()) {
         "Unexpected unencrypted database, $UNENCRYPTED_DATABASE_NAME, already exists. " +
-                "Check if you have accidentally disabled database encryption across releases."
+          "Check if you have accidentally disabled database encryption across releases."
       }
 
-      val helper = delegate ?: createDelegate().also { delegate = it }
-
       return try {
-        helper.writableDatabase
+        getOrCreateDelegate().writableDatabase
       } catch (ex: SQLiteException) {
         if (databaseErrorStrategy == DatabaseErrorStrategy.RECREATE_AT_OPEN) {
           Timber.w("Fail to open database. Recreating database.")
-          configuration.context.getDatabasePath(databaseName).delete()
-
-          // Reset and retry with a fresh helper instance
-          delegate?.close()
-          delegate = null
-          createDelegate().also { delegate = it }.writableDatabase
+          synchronized(delegateLock) {
+            configuration.context.getDatabasePath(databaseName).delete()
+            delegate?.close()
+            delegate = createDelegate()
+          }
+          getOrCreateDelegate().writableDatabase
         } else {
           throw ex
         }
@@ -85,9 +86,18 @@ internal class SQLCipherSupportHelper(
     get() = writableDatabase
 
   override fun close() {
-    delegate?.close()
-    delegate = null
+    synchronized(delegateLock) {
+      delegate?.close()
+      delegate = null
+    }
   }
+
+  /**
+   * Returns the single delegate, creating it once. Only the first access can race, so the fast path
+   * stays lock-free and only creation is serialized.
+   */
+  private fun getOrCreateDelegate(): SupportSQLiteOpenHelper =
+    delegate ?: synchronized(delegateLock) { delegate ?: createDelegate().also { delegate = it } }
 
   /** Creates a SQLCipher-aware SupportSQLiteOpenHelper using SupportOpenHelperFactory. */
   private fun createDelegate(): SupportSQLiteOpenHelper {
